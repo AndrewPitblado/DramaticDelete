@@ -1,4 +1,5 @@
 const modal = document.getElementById("deleteModal");
+const modalCard = modal.querySelector(".modal-card");
 const modalTitle = document.getElementById("modalTitle");
 const modalSubtitle = document.getElementById("modalSubtitle");
 const modalProgress = document.getElementById("modalProgress");
@@ -9,6 +10,10 @@ const nextBtn = document.getElementById("modalNext");
 const resultBanner = document.getElementById("resultBanner");
 const fileCountPill = document.querySelector(".pill");
 const fileList = document.querySelector(".file-list");
+const appShell = document.querySelector(".app-shell");
+
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 const reasonOptions = [
   "You deserve a cleaner desktop.",
@@ -27,6 +32,7 @@ const state = {
   countdownValue: 3,
   countdownDone: false,
   countdownTimer: null,
+  triggerButton: null,
 };
 
 const steps = [
@@ -49,7 +55,8 @@ const steps = [
       const optionsMarkup = reasonOptions
         .map((reason) => {
           const selectedClass = state.reason === reason ? "is-selected" : "";
-          return `<button type="button" class="reason-option ${selectedClass}" data-reason="${reason}">${reason}</button>`;
+          const isPressed = state.reason === reason;
+          return `<button type="button" class="reason-option ${selectedClass}" data-reason="${reason}" aria-pressed="${isPressed}">${reason}</button>`;
         })
         .join("");
 
@@ -78,11 +85,6 @@ const steps = [
 			`;
 
       const farewellInput = document.getElementById("farewellInput");
-      farewellInput.focus();
-      farewellInput.setSelectionRange(
-        farewellInput.value.length,
-        farewellInput.value.length,
-      );
 
       farewellInput.addEventListener("input", () => {
         state.farewell = farewellInput.value;
@@ -130,7 +132,7 @@ document.querySelectorAll(".delete-btn").forEach((deleteButton) => {
     if (!row || !fileName) {
       return;
     }
-    openModalForRow(row, fileName);
+    openModalForRow(row, fileName, deleteButton);
   });
 });
 
@@ -166,23 +168,23 @@ modal.addEventListener("click", (event) => {
   }
 });
 
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && state.isOpen) {
-    closeModal();
-  }
-});
+modal.addEventListener("keydown", handleModalKeyDown);
 
-function openModalForRow(row, fileName) {
+function openModalForRow(row, fileName, triggerButton) {
   state.isOpen = true;
   state.currentStep = 0;
   state.targetRow = row;
   state.fileName = fileName;
+  state.triggerButton = triggerButton;
   state.reason = "";
   state.farewell = "";
   state.countdownValue = 3;
   state.countdownDone = false;
 
   resultBanner.textContent = "";
+  document.body.classList.add("modal-open");
+  appShell?.setAttribute("inert", "");
+  appShell?.setAttribute("aria-hidden", "true");
   modal.classList.remove("is-hidden");
   modal.setAttribute("aria-hidden", "false");
   renderCurrentStep();
@@ -191,8 +193,16 @@ function openModalForRow(row, fileName) {
 function closeModal() {
   state.isOpen = false;
   stopCountdown();
+  document.body.classList.remove("modal-open");
+  appShell?.removeAttribute("inert");
+  appShell?.removeAttribute("aria-hidden");
   modal.classList.add("is-hidden");
   modal.setAttribute("aria-hidden", "true");
+
+  const fallbackButton = document.contains(state.triggerButton)
+    ? state.triggerButton
+    : document.querySelector(".delete-btn");
+  fallbackButton?.focus();
 }
 
 function renderCurrentStep() {
@@ -206,6 +216,7 @@ function renderCurrentStep() {
   nextBtn.textContent = activeStep.nextLabel;
   backBtn.style.visibility = state.currentStep === 0 ? "hidden" : "visible";
   updateActionButtons();
+  setStepFocus();
 }
 
 function updateActionButtons() {
@@ -244,6 +255,101 @@ function stopCountdown() {
     window.clearInterval(state.countdownTimer);
     state.countdownTimer = null;
   }
+}
+
+function setStepFocus() {
+  if (!state.isOpen) {
+    return;
+  }
+
+  if (state.currentStep === 1) {
+    const selectedReason = modalBody.querySelector(
+      ".reason-option.is-selected",
+    );
+    const firstReason = modalBody.querySelector(".reason-option");
+    (selectedReason || firstReason || nextBtn)?.focus();
+    return;
+  }
+
+  if (state.currentStep === 2) {
+    const farewellInput = document.getElementById("farewellInput");
+    if (farewellInput) {
+      farewellInput.focus();
+      farewellInput.setSelectionRange(
+        farewellInput.value.length,
+        farewellInput.value.length,
+      );
+      return;
+    }
+  }
+
+  if (state.currentStep === 3) {
+    const countdownStart = document.getElementById("startCountdown");
+    if (!state.countdownDone && countdownStart) {
+      countdownStart.focus();
+      return;
+    }
+  }
+
+  if (!nextBtn.disabled) {
+    nextBtn.focus();
+    return;
+  }
+
+  const firstFocusable = getModalFocusableElements()[0];
+  (firstFocusable || modalCard)?.focus();
+}
+
+function handleModalKeyDown(event) {
+  if (!state.isOpen) {
+    return;
+  }
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeModal();
+    return;
+  }
+
+  if (event.key === "Tab") {
+    trapFocus(event);
+  }
+}
+
+function trapFocus(event) {
+  const focusableElements = getModalFocusableElements();
+
+  if (focusableElements.length === 0) {
+    event.preventDefault();
+    modalCard?.focus();
+    return;
+  }
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+  const activeElement = document.activeElement;
+
+  if (event.shiftKey) {
+    if (!modal.contains(activeElement) || activeElement === firstElement) {
+      event.preventDefault();
+      lastElement.focus();
+    }
+    return;
+  }
+
+  if (!modal.contains(activeElement) || activeElement === lastElement) {
+    event.preventDefault();
+    firstElement.focus();
+  }
+}
+
+function getModalFocusableElements() {
+  return Array.from(modal.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
+    (element) =>
+      !element.hasAttribute("disabled") &&
+      element.getAttribute("aria-hidden") !== "true" &&
+      element.getClientRects().length > 0,
+  );
 }
 
 function performDelete() {
