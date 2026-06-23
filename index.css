@@ -280,6 +280,23 @@ h1 {
   opacity: 0.6;
 }
 
+.dust-particle {
+  position: absolute;
+  left: 42%;
+  top: 50%;
+  width: var(--dust-size, 6px);
+  height: var(--dust-size, 6px);
+  border-radius: 999px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  background: var(--dust-color, #ffe4cc);
+  box-shadow: 0 0 10px
+    color-mix(in srgb, var(--dust-color, #ffe4cc) 55%, transparent);
+  opacity: 0;
+  animation: dust-drift var(--dust-duration, 840ms) ease-out
+    var(--dust-delay, 0ms) forwards;
+}
+
 @keyframes pre-tear-shudder {
   0% {
     transform: translateX(0) rotate(0deg);
@@ -338,6 +355,26 @@ h1 {
     opacity: 0;
     transform: translateY(-5px) scale(0.95);
     filter: saturate(0.78) blur(2px);
+  }
+}
+
+@keyframes dust-drift {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.85);
+    filter: blur(0px);
+  }
+  15% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--dust-x, 0px)),
+        calc(-50% + var(--dust-y, -34px))
+      )
+      scale(0.25);
+    filter: blur(1.5px);
   }
 }
 
@@ -533,6 +570,7 @@ h1 {
   .file-row.is-tearing,
   .file-row.is-fading,
   .tear-fragment,
+  .dust-particle,
   .file-row.is-poofing::after {
     animation: none !important;
   }

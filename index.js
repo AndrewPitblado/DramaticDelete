@@ -373,6 +373,7 @@ function performDelete() {
 
   const rowToDelete = state.targetRow;
   const fileName = state.fileName;
+  const fileType = getFileTypeFromName(fileName);
   const reducedMotion = reducedMotionQuery.matches;
   const poofDelay = reducedMotion ? 0 : 260;
   const deleteDelay = reducedMotion ? 180 : 1180;
@@ -380,15 +381,16 @@ function performDelete() {
   closeModal({ restoreFocus: false });
   rowToDelete.classList.add("is-tearing");
   addTearFragment(rowToDelete);
-  playTearSound();
+  playTearSound(fileType);
 
   window.setTimeout(() => {
     if (!document.contains(rowToDelete)) {
       return;
     }
 
+    addDustParticles(rowToDelete, fileType);
     rowToDelete.classList.add("is-poofing", "is-fading");
-    playPoofSound();
+    playPoofSound(fileType);
   }, poofDelay);
 
   window.setTimeout(() => {
@@ -435,6 +437,75 @@ function addTearFragment(rowElement) {
   );
 }
 
+function addDustParticles(rowElement, fileType) {
+  const particleCount = reducedMotionQuery.matches ? 2 : 12;
+  const palette = getDustPalette(fileType);
+
+  for (let index = 0; index < particleCount; index += 1) {
+    const particle = document.createElement("span");
+    const xDirection = (Math.random() * 2 - 1) * 76;
+    const yDirection = -20 - Math.random() * 54;
+    const delay = Math.random() * 120;
+    const duration = 680 + Math.random() * 360;
+    const size = 5 + Math.random() * 6;
+    const color = palette[Math.floor(Math.random() * palette.length)];
+
+    particle.className = "dust-particle";
+    particle.setAttribute("aria-hidden", "true");
+    particle.style.setProperty("--dust-x", `${xDirection.toFixed(1)}px`);
+    particle.style.setProperty("--dust-y", `${yDirection.toFixed(1)}px`);
+    particle.style.setProperty("--dust-size", `${size.toFixed(1)}px`);
+    particle.style.setProperty("--dust-delay", `${delay.toFixed(0)}ms`);
+    particle.style.setProperty("--dust-duration", `${duration.toFixed(0)}ms`);
+    particle.style.setProperty("--dust-color", color);
+    rowElement.appendChild(particle);
+
+    particle.addEventListener(
+      "animationend",
+      () => {
+        particle.remove();
+      },
+      { once: true },
+    );
+  }
+}
+
+function getDustPalette(fileType) {
+  const palettes = {
+    doc: ["#ffe9bf", "#fff5dd", "#f2dbc1"],
+    archive: ["#f8d9b8", "#ffd5b8", "#ffbf88"],
+    pdf: ["#ffd7ce", "#ffc4b9", "#ffe6db"],
+    media: ["#d2f5ff", "#b7e9ff", "#e4fbff"],
+    generic: ["#ffe4cc", "#ffedd9", "#f8dcc6"],
+  };
+
+  return palettes[fileType] || palettes.generic;
+}
+
+function getFileTypeFromName(fileName) {
+  const extension = fileName.includes(".")
+    ? fileName.split(".").pop()?.toLowerCase()
+    : "";
+
+  if (["doc", "docx", "txt", "rtf", "md"].includes(extension)) {
+    return "doc";
+  }
+
+  if (["zip", "rar", "7z", "tar", "gz"].includes(extension)) {
+    return "archive";
+  }
+
+  if (extension === "pdf") {
+    return "pdf";
+  }
+
+  if (["png", "jpg", "jpeg", "gif", "svg", "mp4", "mov"].includes(extension)) {
+    return "media";
+  }
+
+  return "generic";
+}
+
 function focusPostDeleteTarget() {
   const nextDeleteButton = document.querySelector(".delete-btn");
   if (nextDeleteButton) {
@@ -471,13 +542,22 @@ function getAudioContext() {
   return audioContext;
 }
 
-function playTearSound() {
+function playTearSound(fileType = "generic") {
   const context = getAudioContext();
   if (!context) {
     return;
   }
 
   primeAudioContext();
+  const profiles = {
+    doc: { frequency: 1560, q: 1.1, gain: 0.12 },
+    archive: { frequency: 980, q: 0.85, gain: 0.14 },
+    pdf: { frequency: 1760, q: 1.25, gain: 0.15 },
+    media: { frequency: 1320, q: 0.95, gain: 0.11 },
+    generic: { frequency: 1800, q: 0.9, gain: 0.16 },
+  };
+  const profile = profiles[fileType] || profiles.generic;
+
   const start = context.currentTime + 0.01;
   const duration = 0.14;
   const noiseBuffer = context.createBuffer(
@@ -496,12 +576,12 @@ function playTearSound() {
 
   const bandpass = context.createBiquadFilter();
   bandpass.type = "bandpass";
-  bandpass.frequency.setValueAtTime(1800, start);
-  bandpass.Q.setValueAtTime(0.9, start);
+  bandpass.frequency.setValueAtTime(profile.frequency, start);
+  bandpass.Q.setValueAtTime(profile.q, start);
 
   const gain = context.createGain();
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(0.16, start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(profile.gain, start + 0.02);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
   source.connect(bandpass);
@@ -512,29 +592,71 @@ function playTearSound() {
   source.stop(start + duration);
 }
 
-function playPoofSound() {
+function playPoofSound(fileType = "generic") {
   const context = getAudioContext();
   if (!context) {
     return;
   }
 
   primeAudioContext();
+  const profiles = {
+    doc: {
+      type: "sine",
+      startFreq: 210,
+      endFreq: 86,
+      gain: 0.06,
+      lowpass: 760,
+    },
+    archive: {
+      type: "square",
+      startFreq: 160,
+      endFreq: 72,
+      gain: 0.05,
+      lowpass: 640,
+    },
+    pdf: {
+      type: "triangle",
+      startFreq: 250,
+      endFreq: 104,
+      gain: 0.08,
+      lowpass: 780,
+    },
+    media: {
+      type: "sine",
+      startFreq: 280,
+      endFreq: 130,
+      gain: 0.055,
+      lowpass: 920,
+    },
+    generic: {
+      type: "triangle",
+      startFreq: 260,
+      endFreq: 92,
+      gain: 0.07,
+      lowpass: 720,
+    },
+  };
+  const profile = profiles[fileType] || profiles.generic;
+
   const start = context.currentTime + 0.01;
   const duration = 0.3;
 
   const oscillator = context.createOscillator();
-  oscillator.type = "triangle";
-  oscillator.frequency.setValueAtTime(260, start);
-  oscillator.frequency.exponentialRampToValueAtTime(92, start + duration);
+  oscillator.type = profile.type;
+  oscillator.frequency.setValueAtTime(profile.startFreq, start);
+  oscillator.frequency.exponentialRampToValueAtTime(
+    profile.endFreq,
+    start + duration,
+  );
 
   const gain = context.createGain();
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(0.07, start + 0.04);
+  gain.gain.exponentialRampToValueAtTime(profile.gain, start + 0.04);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
   const lowpass = context.createBiquadFilter();
   lowpass.type = "lowpass";
-  lowpass.frequency.setValueAtTime(720, start);
+  lowpass.frequency.setValueAtTime(profile.lowpass, start);
 
   oscillator.connect(lowpass);
   lowpass.connect(gain);
