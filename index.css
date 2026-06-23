@@ -14,6 +14,13 @@
   --shadow: 0 20px 40px rgba(83, 41, 20, 0.16);
   --radius-lg: 20px;
   --radius-md: 14px;
+  --motion-row-hover: 180ms;
+  --motion-button: 160ms;
+  --motion-tear-shudder: 460ms;
+  --motion-tear-fly: 840ms;
+  --motion-poof-cloud: 820ms;
+  --motion-fade-away: 1120ms;
+  --motion-dust-default: 940ms;
 }
 
 * {
@@ -161,8 +168,8 @@ h1 {
     rgba(255, 243, 229, 0.78)
   );
   transition:
-    transform 180ms ease,
-    box-shadow 180ms ease;
+    transform var(--motion-row-hover) ease,
+    box-shadow var(--motion-row-hover) ease;
 }
 
 .file-row:hover {
@@ -212,9 +219,9 @@ h1 {
   letter-spacing: 0.03em;
   cursor: pointer;
   transition:
-    transform 160ms ease,
-    box-shadow 160ms ease,
-    filter 160ms ease;
+    transform var(--motion-button) ease,
+    box-shadow var(--motion-button) ease,
+    filter var(--motion-button) ease;
 }
 
 .delete-btn:hover {
@@ -233,7 +240,7 @@ h1 {
 }
 
 .file-row.is-tearing {
-  animation: pre-tear-shudder 260ms ease both;
+  animation: pre-tear-shudder var(--motion-tear-shudder) ease both;
 }
 
 .tear-fragment {
@@ -248,7 +255,8 @@ h1 {
   box-shadow: 0 5px 10px rgba(48, 22, 12, 0.2);
   pointer-events: none;
   transform-origin: center;
-  animation: tear-fly 640ms cubic-bezier(0.12, 0.72, 0.29, 1) forwards;
+  animation: tear-fly var(--motion-tear-fly) cubic-bezier(0.12, 0.72, 0.29, 1)
+    forwards;
 }
 
 .file-row.is-poofing::after {
@@ -268,12 +276,13 @@ h1 {
     rgba(214, 47, 35, 0.08) 68%,
     rgba(214, 47, 35, 0) 100%
   );
-  animation: poof-cloud 620ms ease-out forwards;
+  animation: poof-cloud var(--motion-poof-cloud) ease-out forwards;
 }
 
 .file-row.is-fading {
   pointer-events: none;
-  animation: dramatic-fade-away 920ms cubic-bezier(0.18, 0.81, 0.3, 1) forwards;
+  animation: dramatic-fade-away var(--motion-fade-away)
+    cubic-bezier(0.18, 0.81, 0.3, 1) forwards;
 }
 
 .file-row.is-fading .delete-btn {
@@ -293,8 +302,8 @@ h1 {
   box-shadow: 0 0 10px
     color-mix(in srgb, var(--dust-color, #ffe4cc) 55%, transparent);
   opacity: 0;
-  animation: dust-drift var(--dust-duration, 840ms) ease-out
-    var(--dust-delay, 0ms) forwards;
+  animation: dust-drift var(--dust-duration, var(--motion-dust-default))
+    ease-out var(--dust-delay, 0ms) forwards;
 }
 
 @keyframes pre-tear-shudder {

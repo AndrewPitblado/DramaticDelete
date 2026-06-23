@@ -27,6 +27,86 @@ const reasonOptions = [
   "The recycle bin counselor recommended this.",
 ];
 
+const DELETE_TIMINGS = {
+  poofDelayMs: 260,
+  deleteDelayMs: 1280,
+  reducedMotionPoofDelayMs: 0,
+  reducedMotionDeleteDelayMs: 180,
+  audioStartLeadSec: 0.01,
+  tearSoundDurationSec: 0.14,
+  poofSoundDurationSec: 0.3,
+  tearAttackSec: 0.02,
+  poofAttackSec: 0.04,
+};
+
+const DUST_CONFIG = {
+  count: 12,
+  reducedMotionCount: 2,
+  xRangePx: 76,
+  yBasePx: -20,
+  yRangePx: 54,
+  delayMaxMs: 120,
+  durationMinMs: 680,
+  durationRangeMs: 360,
+  sizeMinPx: 5,
+  sizeRangePx: 6,
+};
+
+const TEAR_FRAGMENT_CONFIG = {
+  xMinPx: 16,
+  xRangePx: 28,
+  yMinPx: 16,
+  yRangePx: 30,
+  rotationMinDeg: 70,
+  rotationRangeDeg: 120,
+};
+
+const TEAR_SOUND_PROFILES = {
+  doc: { frequency: 1560, q: 1.1, gain: 0.12 },
+  archive: { frequency: 980, q: 0.85, gain: 0.14 },
+  pdf: { frequency: 1760, q: 1.25, gain: 0.15 },
+  media: { frequency: 1320, q: 0.95, gain: 0.11 },
+  generic: { frequency: 1800, q: 0.9, gain: 0.16 },
+};
+
+const POOF_SOUND_PROFILES = {
+  doc: {
+    type: "sine",
+    startFreq: 210,
+    endFreq: 86,
+    gain: 0.06,
+    lowpass: 760,
+  },
+  archive: {
+    type: "square",
+    startFreq: 160,
+    endFreq: 72,
+    gain: 0.05,
+    lowpass: 640,
+  },
+  pdf: {
+    type: "triangle",
+    startFreq: 250,
+    endFreq: 104,
+    gain: 0.08,
+    lowpass: 780,
+  },
+  media: {
+    type: "sine",
+    startFreq: 280,
+    endFreq: 130,
+    gain: 0.055,
+    lowpass: 920,
+  },
+  generic: {
+    type: "triangle",
+    startFreq: 260,
+    endFreq: 92,
+    gain: 0.07,
+    lowpass: 720,
+  },
+};
+
 const state = {
   isOpen: false,
   currentStep: 0,
@@ -374,9 +454,9 @@ function performDelete() {
   const rowToDelete = state.targetRow;
   const fileName = state.fileName;
   const fileType = getFileTypeFromName(fileName);
-  const reducedMotion = reducedMotionQuery.matches;
-  const poofDelay = reducedMotion ? 0 : 260;
-  const deleteDelay = reducedMotion ? 180 : 1180;
+  const { poofDelayMs, deleteDelayMs } = getDeleteAnimationTimings(
+    reducedMotionQuery.matches,
+  );
 
   closeModal({ restoreFocus: false });
   rowToDelete.classList.add("is-tearing");
@@ -391,7 +471,7 @@ function performDelete() {
     addDustParticles(rowToDelete, fileType);
     rowToDelete.classList.add("is-poofing", "is-fading");
     playPoofSound(fileType);
-  }, poofDelay);
+  }, poofDelayMs);
 
   window.setTimeout(() => {
     if (!document.contains(rowToDelete)) {
@@ -412,14 +492,23 @@ function performDelete() {
     focusPostDeleteTarget();
     state.targetRow = null;
     state.triggerButton = null;
-  }, deleteDelay);
+  }, deleteDelayMs);
 }
 
 function addTearFragment(rowElement) {
   const tearFragment = document.createElement("span");
-  const randomX = 16 + Math.random() * 28;
-  const randomY = 16 + Math.random() * 30;
-  const randomRotation = 70 + Math.random() * 120;
+  const randomX = randomInRange(
+    TEAR_FRAGMENT_CONFIG.xMinPx,
+    TEAR_FRAGMENT_CONFIG.xRangePx,
+  );
+  const randomY = randomInRange(
+    TEAR_FRAGMENT_CONFIG.yMinPx,
+    TEAR_FRAGMENT_CONFIG.yRangePx,
+  );
+  const randomRotation = randomInRange(
+    TEAR_FRAGMENT_CONFIG.rotationMinDeg,
+    TEAR_FRAGMENT_CONFIG.rotationRangeDeg,
+  );
 
   tearFragment.className = "tear-fragment";
   tearFragment.setAttribute("aria-hidden", "true");
@@ -438,16 +527,22 @@ function addTearFragment(rowElement) {
 }
 
 function addDustParticles(rowElement, fileType) {
-  const particleCount = reducedMotionQuery.matches ? 2 : 12;
+  const particleCount = reducedMotionQuery.matches
+    ? DUST_CONFIG.reducedMotionCount
+    : DUST_CONFIG.count;
   const palette = getDustPalette(fileType);
 
   for (let index = 0; index < particleCount; index += 1) {
     const particle = document.createElement("span");
-    const xDirection = (Math.random() * 2 - 1) * 76;
-    const yDirection = -20 - Math.random() * 54;
-    const delay = Math.random() * 120;
-    const duration = 680 + Math.random() * 360;
-    const size = 5 + Math.random() * 6;
+    const xDirection = (Math.random() * 2 - 1) * DUST_CONFIG.xRangePx;
+    const yDirection =
+      DUST_CONFIG.yBasePx - Math.random() * DUST_CONFIG.yRangePx;
+    const delay = Math.random() * DUST_CONFIG.delayMaxMs;
+    const duration = randomInRange(
+      DUST_CONFIG.durationMinMs,
+      DUST_CONFIG.durationRangeMs,
+    );
+    const size = randomInRange(DUST_CONFIG.sizeMinPx, DUST_CONFIG.sizeRangePx);
     const color = palette[Math.floor(Math.random() * palette.length)];
 
     particle.className = "dust-particle";
@@ -480,6 +575,21 @@ function getDustPalette(fileType) {
   };
 
   return palettes[fileType] || palettes.generic;
+}
+
+function getDeleteAnimationTimings(isReducedMotion) {
+  return {
+    poofDelayMs: isReducedMotion
+      ? DELETE_TIMINGS.reducedMotionPoofDelayMs
+      : DELETE_TIMINGS.poofDelayMs,
+    deleteDelayMs: isReducedMotion
+      ? DELETE_TIMINGS.reducedMotionDeleteDelayMs
+      : DELETE_TIMINGS.deleteDelayMs,
+  };
+}
+
+function randomInRange(min, range) {
+  return min + Math.random() * range;
 }
 
 function getFileTypeFromName(fileName) {
@@ -549,17 +659,10 @@ function playTearSound(fileType = "generic") {
   }
 
   primeAudioContext();
-  const profiles = {
-    doc: { frequency: 1560, q: 1.1, gain: 0.12 },
-    archive: { frequency: 980, q: 0.85, gain: 0.14 },
-    pdf: { frequency: 1760, q: 1.25, gain: 0.15 },
-    media: { frequency: 1320, q: 0.95, gain: 0.11 },
-    generic: { frequency: 1800, q: 0.9, gain: 0.16 },
-  };
-  const profile = profiles[fileType] || profiles.generic;
+  const profile = TEAR_SOUND_PROFILES[fileType] || TEAR_SOUND_PROFILES.generic;
 
-  const start = context.currentTime + 0.01;
-  const duration = 0.14;
+  const start = context.currentTime + DELETE_TIMINGS.audioStartLeadSec;
+  const duration = DELETE_TIMINGS.tearSoundDurationSec;
   const noiseBuffer = context.createBuffer(
     1,
     Math.floor(context.sampleRate * duration),
@@ -581,7 +684,10 @@ function playTearSound(fileType = "generic") {
 
   const gain = context.createGain();
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(profile.gain, start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(
+    profile.gain,
+    start + DELETE_TIMINGS.tearAttackSec,
+  );
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
   source.connect(bandpass);
@@ -599,47 +705,10 @@ function playPoofSound(fileType = "generic") {
   }
 
   primeAudioContext();
-  const profiles = {
-    doc: {
-      type: "sine",
-      startFreq: 210,
-      endFreq: 86,
-      gain: 0.06,
-      lowpass: 760,
-    },
-    archive: {
-      type: "square",
-      startFreq: 160,
-      endFreq: 72,
-      gain: 0.05,
-      lowpass: 640,
-    },
-    pdf: {
-      type: "triangle",
-      startFreq: 250,
-      endFreq: 104,
-      gain: 0.08,
-      lowpass: 780,
-    },
-    media: {
-      type: "sine",
-      startFreq: 280,
-      endFreq: 130,
-      gain: 0.055,
-      lowpass: 920,
-    },
-    generic: {
-      type: "triangle",
-      startFreq: 260,
-      endFreq: 92,
-      gain: 0.07,
-      lowpass: 720,
-    },
-  };
-  const profile = profiles[fileType] || profiles.generic;
+  const profile = POOF_SOUND_PROFILES[fileType] || POOF_SOUND_PROFILES.generic;
 
-  const start = context.currentTime + 0.01;
-  const duration = 0.3;
+  const start = context.currentTime + DELETE_TIMINGS.audioStartLeadSec;
+  const duration = DELETE_TIMINGS.poofSoundDurationSec;
 
   const oscillator = context.createOscillator();
   oscillator.type = profile.type;
@@ -651,7 +720,10 @@ function playPoofSound(fileType = "generic") {
 
   const gain = context.createGain();
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(profile.gain, start + 0.04);
+  gain.gain.exponentialRampToValueAtTime(
+    profile.gain,
+    start + DELETE_TIMINGS.poofAttackSec,
+  );
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
   const lowpass = context.createBiquadFilter();
