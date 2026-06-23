@@ -76,6 +76,41 @@
           </li>
         </ul>
       </section>
+
+      <p id="resultBanner" class="result-banner" aria-live="polite"></p>
     </main>
+
+    <div id="deleteModal" class="modal-overlay is-hidden" aria-hidden="true">
+      <section
+        class="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modalTitle"
+      >
+        <p id="modalProgress" class="modal-progress"></p>
+        <h2 id="modalTitle" class="modal-title"></h2>
+        <p id="modalSubtitle" class="modal-subtitle"></p>
+
+        <div id="modalBody" class="modal-body"></div>
+
+        <div class="modal-actions">
+          <button id="modalBack" type="button" class="modal-btn modal-btn-subtle">
+            Back
+          </button>
+          <button
+            id="modalCancel"
+            type="button"
+            class="modal-btn modal-btn-subtle"
+          >
+            Cancel
+          </button>
+          <button id="modalNext" type="button" class="modal-btn modal-btn-primary">
+            Next
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <script src="index.js" defer></script>
   </body>
 </html>
