@@ -14,13 +14,13 @@
   --shadow: 0 20px 40px rgba(83, 41, 20, 0.16);
   --radius-lg: 20px;
   --radius-md: 14px;
-  --motion-row-hover: 180ms;
-  --motion-button: 160ms;
-  --motion-tear-shudder: 460ms;
-  --motion-tear-fly: 840ms;
-  --motion-poof-cloud: 820ms;
-  --motion-fade-away: 1120ms;
-  --motion-dust-default: 940ms;
+  --motion-row-hover: 260ms;
+  --motion-button: 240ms;
+  --motion-tear-shudder: 760ms;
+  --motion-tear-fly: 1400ms;
+  --motion-poof-cloud: 1500ms;
+  --motion-fade-away: 2200ms;
+  --motion-dust-default: 1800ms;
 }
 
 * {

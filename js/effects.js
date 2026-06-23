@@ -1,5 +1,6 @@
 (() => {
-  const { DELETE_TIMINGS, DUST_CONFIG, TEAR_FRAGMENT_CONFIG } = window.DD_CONFIG;
+  const { DELETE_TIMINGS, DUST_CONFIG, TEAR_FRAGMENT_CONFIG } =
+    window.DD_CONFIG;
   const { getFileTypeConfig } = window.DD_FILE_TYPES;
 
   function randomInRange(min, range) {
@@ -64,7 +65,10 @@
         DUST_CONFIG.durationMinMs,
         DUST_CONFIG.durationRangeMs,
       );
-      const size = randomInRange(DUST_CONFIG.sizeMinPx, DUST_CONFIG.sizeRangePx);
+      const size = randomInRange(
+        DUST_CONFIG.sizeMinPx,
+        DUST_CONFIG.sizeRangePx,
+      );
       const color = palette[Math.floor(Math.random() * palette.length)];
 
       particle.className = "dust-particle";
