@@ -11,9 +11,14 @@ const resultBanner = document.getElementById("resultBanner");
 const fileCountPill = document.querySelector(".pill");
 const fileList = document.querySelector(".file-list");
 const appShell = document.querySelector(".app-shell");
+const reducedMotionQuery = window.matchMedia(
+  "(prefers-reduced-motion: reduce)",
+);
 
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+let audioContext;
 
 const reasonOptions = [
   "You deserve a cleaner desktop.",
@@ -171,6 +176,8 @@ modal.addEventListener("click", (event) => {
 modal.addEventListener("keydown", handleModalKeyDown);
 
 function openModalForRow(row, fileName, triggerButton) {
+  primeAudioContext();
+
   state.isOpen = true;
   state.currentStep = 0;
   state.targetRow = row;
@@ -190,7 +197,9 @@ function openModalForRow(row, fileName, triggerButton) {
   renderCurrentStep();
 }
 
-function closeModal() {
+function closeModal(options = {}) {
+  const { restoreFocus = true } = options;
+
   state.isOpen = false;
   stopCountdown();
   document.body.classList.remove("modal-open");
@@ -198,6 +207,10 @@ function closeModal() {
   appShell?.removeAttribute("aria-hidden");
   modal.classList.add("is-hidden");
   modal.setAttribute("aria-hidden", "true");
+
+  if (!restoreFocus) {
+    return;
+  }
 
   const fallbackButton = document.contains(state.triggerButton)
     ? state.triggerButton
@@ -358,11 +371,32 @@ function performDelete() {
     return;
   }
 
+  const rowToDelete = state.targetRow;
   const fileName = state.fileName;
-  state.targetRow.classList.add("is-deleting");
+  const reducedMotion = reducedMotionQuery.matches;
+  const poofDelay = reducedMotion ? 0 : 260;
+  const deleteDelay = reducedMotion ? 180 : 1180;
+
+  closeModal({ restoreFocus: false });
+  rowToDelete.classList.add("is-tearing");
+  addTearFragment(rowToDelete);
+  playTearSound();
 
   window.setTimeout(() => {
-    state.targetRow?.remove();
+    if (!document.contains(rowToDelete)) {
+      return;
+    }
+
+    rowToDelete.classList.add("is-poofing", "is-fading");
+    playPoofSound();
+  }, poofDelay);
+
+  window.setTimeout(() => {
+    if (!document.contains(rowToDelete)) {
+      return;
+    }
+
+    rowToDelete.remove();
 
     const remaining = fileList.querySelectorAll(".file-row").length;
     fileCountPill.textContent = `${remaining} files`;
@@ -373,6 +407,139 @@ function performDelete() {
     }
 
     resultBanner.textContent = `"${fileName}" has been emotionally deleted.`;
-    closeModal();
-  }, 500);
+    focusPostDeleteTarget();
+    state.targetRow = null;
+    state.triggerButton = null;
+  }, deleteDelay);
+}
+
+function addTearFragment(rowElement) {
+  const tearFragment = document.createElement("span");
+  const randomX = 16 + Math.random() * 28;
+  const randomY = 16 + Math.random() * 30;
+  const randomRotation = 70 + Math.random() * 120;
+
+  tearFragment.className = "tear-fragment";
+  tearFragment.setAttribute("aria-hidden", "true");
+  tearFragment.style.setProperty("--tear-x", `${randomX}px`);
+  tearFragment.style.setProperty("--tear-y", `${randomY}px`);
+  tearFragment.style.setProperty("--tear-rot", `${randomRotation}deg`);
+  rowElement.appendChild(tearFragment);
+
+  tearFragment.addEventListener(
+    "animationend",
+    () => {
+      tearFragment.remove();
+    },
+    { once: true },
+  );
+}
+
+function focusPostDeleteTarget() {
+  const nextDeleteButton = document.querySelector(".delete-btn");
+  if (nextDeleteButton) {
+    nextDeleteButton.focus();
+    return;
+  }
+
+  resultBanner.setAttribute("tabindex", "-1");
+  resultBanner.focus();
+}
+
+function primeAudioContext() {
+  const context = getAudioContext();
+  if (!context || context.state !== "suspended") {
+    return;
+  }
+
+  context.resume().catch(() => {
+    // Ignore: some browsers block sound until stronger user activation.
+  });
+}
+
+function getAudioContext() {
+  if (audioContext) {
+    return audioContext;
+  }
+
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    return null;
+  }
+
+  audioContext = new AudioContextClass();
+  return audioContext;
+}
+
+function playTearSound() {
+  const context = getAudioContext();
+  if (!context) {
+    return;
+  }
+
+  primeAudioContext();
+  const start = context.currentTime + 0.01;
+  const duration = 0.14;
+  const noiseBuffer = context.createBuffer(
+    1,
+    Math.floor(context.sampleRate * duration),
+    context.sampleRate,
+  );
+  const channel = noiseBuffer.getChannelData(0);
+
+  for (let index = 0; index < channel.length; index += 1) {
+    channel[index] = Math.random() * 2 - 1;
+  }
+
+  const source = context.createBufferSource();
+  source.buffer = noiseBuffer;
+
+  const bandpass = context.createBiquadFilter();
+  bandpass.type = "bandpass";
+  bandpass.frequency.setValueAtTime(1800, start);
+  bandpass.Q.setValueAtTime(0.9, start);
+
+  const gain = context.createGain();
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.16, start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+  source.connect(bandpass);
+  bandpass.connect(gain);
+  gain.connect(context.destination);
+
+  source.start(start);
+  source.stop(start + duration);
+}
+
+function playPoofSound() {
+  const context = getAudioContext();
+  if (!context) {
+    return;
+  }
+
+  primeAudioContext();
+  const start = context.currentTime + 0.01;
+  const duration = 0.3;
+
+  const oscillator = context.createOscillator();
+  oscillator.type = "triangle";
+  oscillator.frequency.setValueAtTime(260, start);
+  oscillator.frequency.exponentialRampToValueAtTime(92, start + duration);
+
+  const gain = context.createGain();
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.07, start + 0.04);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+  const lowpass = context.createBiquadFilter();
+  lowpass.type = "lowpass";
+  lowpass.frequency.setValueAtTime(720, start);
+
+  oscillator.connect(lowpass);
+  lowpass.connect(gain);
+  gain.connect(context.destination);
+
+  oscillator.start(start);
+  oscillator.stop(start + duration);
 }
