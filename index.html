@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dramatic Delete</title>
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body>
+    <main class="app-shell" aria-labelledby="page-title">
+      <header class="hero">
+        <p class="eyebrow">HCI SILLY INTERFACE PROTOTYPE</p>
+        <h1 id="page-title">Dramatic Delete</h1>
+        <p class="subtitle">
+          Welcome to the most emotionally complicated file manager on earth.
+          Pick a file, tap delete, and prepare for a dramatic breakup ritual.
+        </p>
+      </header>
+
+      <section class="instructions" aria-label="How this prototype works">
+        <h2>How It Works</h2>
+        <ol>
+          <li>Select a file from the list below.</li>
+          <li>Press Delete and begin the emotional process.</li>
+          <li>After several dramatic steps, the file is removed.</li>
+        </ol>
+        <p class="note">
+          All files are fictional. No real files will be harmed.
+        </p>
+      </section>
+
+      <section class="files" aria-label="Sample files">
+        <div class="files-header">
+          <h2>Important Totally Real Documents</h2>
+          <span class="pill">3 files</span>
+        </div>
+
+        <ul class="file-list">
+          <li class="file-row">
+            <div class="file-meta">
+              <span class="file-icon" aria-hidden="true">📄</span>
+              <div>
+                <p class="file-name">Thesis_FINAL_final_V12.docx</p>
+                <p class="file-detail">2.4 MB • Edited 3 minutes ago</p>
+              </div>
+            </div>
+            <button class="delete-btn" type="button" data-file-id="1">
+              Delete
+            </button>
+          </li>
+
+          <li class="file-row">
+            <div class="file-meta">
+              <span class="file-icon" aria-hidden="true">📁</span>
+              <div>
+                <p class="file-name">Vacation_Photos_Probably_Keep.zip</p>
+                <p class="file-detail">1.1 GB • Edited yesterday</p>
+              </div>
+            </div>
+            <button class="delete-btn" type="button" data-file-id="2">
+              Delete
+            </button>
+          </li>
+
+          <li class="file-row">
+            <div class="file-meta">
+              <span class="file-icon" aria-hidden="true">🧾</span>
+              <div>
+                <p class="file-name">Taxes_DoNotOpen_2019.pdf</p>
+                <p class="file-detail">18 MB • Edited 2 years ago</p>
+              </div>
+            </div>
+            <button class="delete-btn" type="button" data-file-id="3">
+              Delete
+            </button>
+          </li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

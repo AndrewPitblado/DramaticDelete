@@ -1,0 +1,244 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,800&family=Space+Mono:wght@400;700&display=swap");
+
+:root {
+  --bg-top: #fff0d3;
+  --bg-bottom: #ffd4b3;
+  --ink: #1f1a17;
+  --muted: #5f4e45;
+  --card: rgba(255, 252, 246, 0.84);
+  --card-border: rgba(31, 26, 23, 0.12);
+  --accent: #ef4f22;
+  --accent-dark: #b52f0f;
+  --pill-bg: #1f1a17;
+  --pill-ink: #fff5ea;
+  --shadow: 0 20px 40px rgba(83, 41, 20, 0.16);
+  --radius-lg: 20px;
+  --radius-md: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: "Space Mono", monospace;
+  background:
+    radial-gradient(
+      circle at 16% 15%,
+      rgba(255, 255, 255, 0.55),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 85% 10%,
+      rgba(255, 215, 166, 0.7),
+      transparent 28%
+    ),
+    linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+  background-attachment: fixed;
+}
+
+.app-shell {
+  width: min(980px, calc(100% - 2rem));
+  margin: 2rem auto;
+  padding: clamp(1.25rem, 2.5vw, 2rem);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+}
+
+.hero {
+  padding: 1rem 0 0.5rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent-dark);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+}
+
+h1,
+h2 {
+  font-family: "Fraunces", serif;
+  margin: 0;
+  line-height: 1.1;
+}
+
+h1 {
+  margin-top: 0.35rem;
+  font-weight: 800;
+  font-size: clamp(2.1rem, 5vw, 3.4rem);
+}
+
+.subtitle {
+  margin: 0.85rem 0 0;
+  max-width: 65ch;
+  color: var(--muted);
+  font-size: 0.97rem;
+}
+
+.instructions,
+.files {
+  margin-top: 1.5rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.62);
+  padding: clamp(0.95rem, 2.2vw, 1.25rem);
+}
+
+.instructions h2,
+.files h2 {
+  font-size: clamp(1.2rem, 3.2vw, 1.65rem);
+}
+
+.instructions ol {
+  margin: 0.8rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--ink);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.note {
+  margin: 0.9rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.files-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--pill-bg);
+  color: var(--pill-ink);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.file-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.85),
+    rgba(255, 243, 229, 0.78)
+  );
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.file-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(33, 22, 14, 0.08);
+}
+
+.file-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.file-icon {
+  font-size: 1.35rem;
+  width: 1.8rem;
+  text-align: center;
+}
+
+.file-name,
+.file-detail {
+  margin: 0;
+}
+
+.file-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.file-detail {
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.delete-btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.6rem 0.95rem;
+  background: linear-gradient(180deg, #ff6c45, var(--accent));
+  color: #fff8f2;
+  font-family: "Space Mono", monospace;
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
+}
+
+.delete-btn:hover {
+  filter: saturate(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 14px rgba(181, 47, 15, 0.25);
+}
+
+.delete-btn:active {
+  transform: translateY(1px);
+}
+
+.delete-btn:focus-visible {
+  outline: 3px solid rgba(239, 79, 34, 0.32);
+  outline-offset: 2px;
+}
+
+@media (max-width: 680px) {
+  .app-shell {
+    width: min(980px, calc(100% - 1rem));
+    margin: 0.7rem auto 1.2rem;
+    padding: 1rem;
+  }
+
+  .file-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .delete-btn {
+    width: 100%;
+  }
+}
