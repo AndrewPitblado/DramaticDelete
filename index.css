@@ -2,13 +2,13 @@
 
 :root {
   --bg-top: #fff0d3;
-  --bg-bottom: #ffd4b3;
+  --bg-bottom: #ec2b09;
   --ink: #1f1a17;
   --muted: #5f4e45;
   --card: rgba(255, 252, 246, 0.84);
   --card-border: rgba(31, 26, 23, 0.12);
-  --accent: #ef4f22;
-  --accent-dark: #b52f0f;
+  --accent: #d62f23;
+  --accent-dark: #97290d;
   --pill-bg: #1f1a17;
   --pill-ink: #fff5ea;
   --shadow: 0 20px 40px rgba(83, 41, 20, 0.16);
