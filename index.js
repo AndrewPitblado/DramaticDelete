@@ -20,6 +20,8 @@ const appShell = document.querySelector(".app-shell");
 const reducedMotionQuery = window.matchMedia(
   "(prefers-reduced-motion: reduce)",
 );
+const EMPTY_STATE_SELECTOR = ".file-row-empty";
+const DELETE_BUTTON_SELECTOR = ".delete-btn";
 
 const state = {
   isOpen: false,
@@ -126,15 +128,19 @@ const steps = [
   },
 ];
 
-document.querySelectorAll(".delete-btn").forEach((deleteButton) => {
-  deleteButton.addEventListener("click", () => {
-    const row = deleteButton.closest(".file-row");
-    const fileName = row?.querySelector(".file-name")?.textContent?.trim();
-    if (!row || !fileName) {
-      return;
-    }
-    openModalForRow(row, fileName, deleteButton);
-  });
+fileList.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest(DELETE_BUTTON_SELECTOR);
+  if (!deleteButton || !fileList.contains(deleteButton)) {
+    return;
+  }
+
+  const row = deleteButton.closest(".file-row");
+  const fileName = row?.querySelector(".file-name")?.textContent?.trim();
+  if (!row || !fileName) {
+    return;
+  }
+
+  openModalForRow(row, fileName, deleteButton);
 });
 
 backBtn.addEventListener("click", () => {
@@ -173,23 +179,11 @@ modal.addEventListener("keydown", handleModalKeyDown);
 
 function openModalForRow(row, fileName, triggerButton) {
   primeAudioContext();
+  resetDeleteFlowState(row, fileName, triggerButton);
 
   state.isOpen = true;
-  state.currentStep = 0;
-  state.targetRow = row;
-  state.fileName = fileName;
-  state.triggerButton = triggerButton;
-  state.reason = "";
-  state.farewell = "";
-  state.countdownValue = 3;
-  state.countdownDone = false;
-
   resultBanner.textContent = "";
-  document.body.classList.add("modal-open");
-  appShell?.setAttribute("inert", "");
-  appShell?.setAttribute("aria-hidden", "true");
-  modal.classList.remove("is-hidden");
-  modal.setAttribute("aria-hidden", "false");
+  setModalOpenState(true);
   renderCurrentStep();
 }
 
@@ -198,11 +192,7 @@ function closeModal(options = {}) {
 
   state.isOpen = false;
   stopCountdown();
-  document.body.classList.remove("modal-open");
-  appShell?.removeAttribute("inert");
-  appShell?.removeAttribute("aria-hidden");
-  modal.classList.add("is-hidden");
-  modal.setAttribute("aria-hidden", "true");
+  setModalOpenState(false);
 
   if (!restoreFocus) {
     return;
@@ -423,14 +413,46 @@ function clearUndoTimer() {
   }
 }
 
+function resetDeleteFlowState(row, fileName, triggerButton) {
+  state.currentStep = 0;
+  state.targetRow = row;
+  state.fileName = fileName;
+  state.triggerButton = triggerButton;
+  state.reason = "";
+  state.farewell = "";
+  state.countdownValue = 3;
+  state.countdownDone = false;
+}
+
+function setModalOpenState(isOpen) {
+  document.body.classList.toggle("modal-open", isOpen);
+
+  if (isOpen) {
+    appShell?.setAttribute("inert", "");
+    appShell?.setAttribute("aria-hidden", "true");
+    modal.classList.remove("is-hidden");
+    modal.setAttribute("aria-hidden", "false");
+    return;
+  }
+
+  appShell?.removeAttribute("inert");
+  appShell?.removeAttribute("aria-hidden");
+  modal.classList.add("is-hidden");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function getRemainingDeleteCount() {
+  return fileList.querySelectorAll(DELETE_BUTTON_SELECTOR).length;
+}
+
 function updateFileCountPill() {
-  const remaining = fileList.querySelectorAll(".delete-btn").length;
+  const remaining = getRemainingDeleteCount();
   fileCountPill.textContent = `${remaining} files`;
 }
 
 function ensureEmptyState() {
-  const remaining = fileList.querySelectorAll(".delete-btn").length;
-  const emptyRow = fileList.querySelector(".file-row-empty");
+  const remaining = getRemainingDeleteCount();
+  const emptyRow = fileList.querySelector(EMPTY_STATE_SELECTOR);
 
   if (remaining === 0 && !emptyRow) {
     const placeholder = document.createElement("li");
@@ -448,11 +470,21 @@ function ensureEmptyState() {
 
 function showUndoBanner(fileName) {
   resultBanner.classList.add("is-toast");
-  resultBanner.innerHTML = `"${fileName}" is gone. Are you sure you don't want to take me back? <button type="button" id="undoDeleteBtn" class="undo-btn">Take me back</button>`;
+  const undoButton = document.createElement("button");
+  undoButton.type = "button";
+  undoButton.id = "undoDeleteBtn";
+  undoButton.className = "undo-btn";
+  undoButton.textContent = "Take me back";
+  undoButton.addEventListener("click", undoPendingDelete, { once: true });
 
-  const undoButton = document.getElementById("undoDeleteBtn");
-  undoButton?.addEventListener("click", undoPendingDelete, { once: true });
-  undoButton?.focus();
+  resultBanner.replaceChildren(
+    document.createTextNode(
+      `"${fileName}" is gone. Are you sure you don't want to take me back? `,
+    ),
+    undoButton,
+  );
+
+  undoButton.focus();
 }
 
 function undoPendingDelete() {
@@ -462,7 +494,7 @@ function undoPendingDelete() {
 
   clearUndoTimer();
   const { row, nextSibling, fileName } = state.pendingUndo;
-  const emptyRow = fileList.querySelector(".file-row-empty");
+  const emptyRow = fileList.querySelector(EMPTY_STATE_SELECTOR);
   emptyRow?.remove();
 
   if (nextSibling && nextSibling.parentElement === fileList) {
@@ -500,7 +532,7 @@ function finalizePendingDelete(showFinalMessage = false) {
 }
 
 function focusPostDeleteTarget() {
-  const nextDeleteButton = document.querySelector(".delete-btn");
+  const nextDeleteButton = document.querySelector(DELETE_BUTTON_SELECTOR);
   if (nextDeleteButton) {
     nextDeleteButton.focus();
     return;
