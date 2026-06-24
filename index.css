@@ -395,6 +395,34 @@ h1 {
   font-weight: 700;
 }
 
+.result-banner.is-toast {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.undo-btn {
+  border: 1px solid rgba(31, 26, 23, 0.2);
+  background: #fff6ea;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-family: "Space Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.undo-btn:hover {
+  background: #fff;
+}
+
+.undo-btn:focus-visible {
+  outline: 3px solid rgba(239, 79, 34, 0.34);
+  outline-offset: 2px;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;

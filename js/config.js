@@ -2,6 +2,7 @@
   const config = {
     FOCUSABLE_SELECTOR:
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    UNDO_WINDOW_MS: 5000,
     reasonOptions: [
       "You deserve a cleaner desktop.",
       "This file keeps bringing up bad memories.",

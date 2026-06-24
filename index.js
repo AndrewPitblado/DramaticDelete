@@ -1,4 +1,4 @@
-const { FOCUSABLE_SELECTOR, reasonOptions } = window.DD_CONFIG;
+const { FOCUSABLE_SELECTOR, reasonOptions, UNDO_WINDOW_MS } = window.DD_CONFIG;
 const { getFileTypeFromName } = window.DD_FILE_TYPES;
 const { primeAudioContext, playTearSound, playPoofSound } = window.DD_AUDIO;
 const { addDustParticles, addTearFragment, getDeleteAnimationTimings } =
@@ -32,6 +32,8 @@ const state = {
   countdownDone: false,
   countdownTimer: null,
   triggerButton: null,
+  pendingUndo: null,
+  undoTimer: null,
 };
 
 const steps = [
@@ -360,6 +362,8 @@ function getModalFocusableElements() {
 }
 
 function performDelete() {
+  finalizePendingDelete();
+
   if (!state.targetRow) {
     closeModal();
     return;
@@ -368,6 +372,7 @@ function performDelete() {
   const rowToDelete = state.targetRow;
   const fileName = state.fileName;
   const fileType = getFileTypeFromName(fileName);
+  const nextSibling = rowToDelete.nextElementSibling;
   const { poofDelayMs, deleteDelayMs } = getDeleteAnimationTimings(
     reducedMotionQuery.matches,
   );
@@ -393,20 +398,105 @@ function performDelete() {
     }
 
     rowToDelete.remove();
+    updateFileCountPill();
+    ensureEmptyState();
 
-    const remaining = fileList.querySelectorAll(".file-row").length;
-    fileCountPill.textContent = `${remaining} files`;
+    state.pendingUndo = {
+      row: rowToDelete,
+      fileName,
+      nextSibling,
+    };
+    showUndoBanner(fileName);
+    state.undoTimer = window.setTimeout(() => {
+      finalizePendingDelete(true);
+    }, UNDO_WINDOW_MS);
 
-    if (remaining === 0) {
-      fileList.innerHTML =
-        '<li class="file-row"><p class="file-name">All files deleted. The drama is complete.</p></li>';
-    }
-
-    resultBanner.textContent = `"${fileName}" has been emotionally deleted.`;
-    focusPostDeleteTarget();
     state.targetRow = null;
     state.triggerButton = null;
   }, deleteDelayMs);
+}
+
+function clearUndoTimer() {
+  if (state.undoTimer) {
+    window.clearTimeout(state.undoTimer);
+    state.undoTimer = null;
+  }
+}
+
+function updateFileCountPill() {
+  const remaining = fileList.querySelectorAll(".delete-btn").length;
+  fileCountPill.textContent = `${remaining} files`;
+}
+
+function ensureEmptyState() {
+  const remaining = fileList.querySelectorAll(".delete-btn").length;
+  const emptyRow = fileList.querySelector(".file-row-empty");
+
+  if (remaining === 0 && !emptyRow) {
+    const placeholder = document.createElement("li");
+    placeholder.className = "file-row file-row-empty";
+    placeholder.innerHTML =
+      '<p class="file-name">All files deleted. The drama is complete.</p>';
+    fileList.appendChild(placeholder);
+    return;
+  }
+
+  if (remaining > 0 && emptyRow) {
+    emptyRow.remove();
+  }
+}
+
+function showUndoBanner(fileName) {
+  resultBanner.classList.add("is-toast");
+  resultBanner.innerHTML = `"${fileName}" is gone. Are you sure you don't want to take me back? <button type="button" id="undoDeleteBtn" class="undo-btn">Take me back</button>`;
+
+  const undoButton = document.getElementById("undoDeleteBtn");
+  undoButton?.addEventListener("click", undoPendingDelete, { once: true });
+  undoButton?.focus();
+}
+
+function undoPendingDelete() {
+  if (!state.pendingUndo) {
+    return;
+  }
+
+  clearUndoTimer();
+  const { row, nextSibling, fileName } = state.pendingUndo;
+  const emptyRow = fileList.querySelector(".file-row-empty");
+  emptyRow?.remove();
+
+  if (nextSibling && nextSibling.parentElement === fileList) {
+    fileList.insertBefore(row, nextSibling);
+  } else {
+    fileList.appendChild(row);
+  }
+
+  state.pendingUndo = null;
+  updateFileCountPill();
+  resultBanner.classList.remove("is-toast");
+  resultBanner.textContent = `"${fileName}" has been taken back. Love wins for now.`;
+
+  const restoredButton = row.querySelector(".delete-btn");
+  restoredButton?.focus();
+}
+
+function finalizePendingDelete(showFinalMessage = false) {
+  if (!state.pendingUndo) {
+    return;
+  }
+
+  clearUndoTimer();
+  const { fileName } = state.pendingUndo;
+  state.pendingUndo = null;
+  resultBanner.classList.remove("is-toast");
+
+  if (!showFinalMessage) {
+    resultBanner.textContent = "";
+    return;
+  }
+
+  resultBanner.textContent = `"${fileName}" has been emotionally deleted.`;
+  focusPostDeleteTarget();
 }
 
 function focusPostDeleteTarget() {
