@@ -2,13 +2,24 @@
   const config = {
     FOCUSABLE_SELECTOR:
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    UNDO_WINDOW_MS: 5000,
     reasonOptions: [
       "You deserve a cleaner desktop.",
       "This file keeps bringing up bad memories.",
       "We have grown in different folder directions.",
       "The recycle bin counselor recommended this.",
     ],
+    MORSE_OATH_CONFIG: {
+      deletePattern: ".-.",
+      keepPattern: "-.-",
+      maxSymbols: 9,
+    },
+    DAMAGE_METER_CONFIG: {
+      windowMs: 2500,
+      minTaps: 3,
+    },
+    EXILE_VECTOR_CONFIG: {
+      sequenceLength: 3,
+    },
     DELETE_TIMINGS: {
       poofDelayMs: 600,
       deleteDelayMs: 3200,

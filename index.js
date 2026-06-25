@@ -1,4 +1,9 @@
-const { FOCUSABLE_SELECTOR, reasonOptions, UNDO_WINDOW_MS } = window.DD_CONFIG;
+const {
+  FOCUSABLE_SELECTOR,
+  MORSE_OATH_CONFIG,
+  DAMAGE_METER_CONFIG,
+  EXILE_VECTOR_CONFIG,
+} = window.DD_CONFIG;
 const { getFileTypeFromName } = window.DD_FILE_TYPES;
 const { primeAudioContext, playTearSound, playPoofSound } = window.DD_AUDIO;
 const { addDustParticles, addTearFragment, getDeleteAnimationTimings } =
@@ -28,103 +33,160 @@ const state = {
   currentStep: 0,
   targetRow: null,
   fileName: "",
-  reason: "",
-  farewell: "",
-  countdownValue: 3,
-  countdownDone: false,
-  countdownTimer: null,
+  morseSequence: "",
+  morseDecision: "",
+  damageMeter: {
+    taps: [],
+    running: false,
+    done: false,
+    score: null,
+    startedAt: 0,
+  },
+  exileVector: {
+    sequence: [],
+    zone: "",
+  },
+  damageMeterTimer: null,
   triggerButton: null,
-  pendingUndo: null,
-  undoTimer: null,
+};
+
+const exileZoneMap = {
+  UUR: "Upper-Right Realm",
+  UUL: "Upper-Left Realm",
+  UUD: "Top-Center Ridge",
+  DDR: "Lower-Right Wastes",
+  DDL: "Lower-Left Wastes",
+  DDU: "Bottom-Center Catacombs",
+  LLR: "Center-Right Limbo",
+  RRL: "Center-Left Limbo",
+  LLD: "Midnight South Sector",
+  RRU: "Sunrise North Sector",
 };
 
 const steps = [
   {
-    title: "Step 1: Confirm The Breakup",
+    title: "Step 1: Morse Breakup Oath",
     subtitle:
-      "Before we continue, please acknowledge this relationship is ending.",
-    nextLabel: "Yes, continue",
+      "Send your oath in dots and dashes. .-. means DELETE, -.- means KEEP.",
+    nextLabel: "Transmission accepted",
     render: () => {
-      modalBody.innerHTML = `<p>You are about to delete <strong>${state.fileName}</strong>. This action is wildly dramatic and permanent in this prototype.</p>`;
-    },
-    validate: () => true,
-  },
-  {
-    title: "Step 2: Choose A Reason",
-    subtitle:
-      "Every dramatic ending needs a thoughtful reason. Pick one to proceed.",
-    nextLabel: "Reason selected",
-    render: () => {
-      const optionsMarkup = reasonOptions
-        .map((reason) => {
-          const selectedClass = state.reason === reason ? "is-selected" : "";
-          const isPressed = state.reason === reason;
-          return `<button type="button" class="reason-option ${selectedClass}" data-reason="${reason}" aria-pressed="${isPressed}">${reason}</button>`;
-        })
-        .join("");
-
-      modalBody.innerHTML = `<div class="reason-grid">${optionsMarkup}</div>`;
-
-      modalBody.querySelectorAll(".reason-option").forEach((optionButton) => {
-        optionButton.addEventListener("click", () => {
-          state.reason = optionButton.dataset.reason || "";
-          renderCurrentStep();
-        });
-      });
-    },
-    validate: () => Boolean(state.reason),
-  },
-  {
-    title: "Step 3: Final Message",
-    subtitle:
-      "Type a farewell note to the file. Minimum 10 characters for emotional closure.",
-    nextLabel: "Message written",
-    render: () => {
-      const charCount = state.farewell.trim().length;
+      const morseView = state.morseSequence || "(no signal yet)";
+      const decoded = getMorseDecisionLabel(state.morseDecision);
       modalBody.innerHTML = `
-        <label class="farewell-label" for="farewellInput">Dear ${state.fileName},</label>
-        <textarea id="farewellInput" class="farewell-input" placeholder="It's not you, it's my storage anxiety...">${state.farewell}</textarea>
-        <p class="farewell-meta">${charCount}/10 characters</p>
-      `;
-
-      const farewellInput = document.getElementById("farewellInput");
-
-      farewellInput.addEventListener("input", () => {
-        state.farewell = farewellInput.value;
-        const nextCount = state.farewell.trim().length;
-        const meta = modalBody.querySelector(".farewell-meta");
-        meta.textContent = `${nextCount}/10 characters`;
-        updateActionButtons();
-      });
-    },
-    validate: () => state.farewell.trim().length >= 10,
-  },
-  {
-    title: "Step 4: Point Of No Return",
-    subtitle:
-      "Start the countdown. Once it reaches zero, the delete button unlocks.",
-    nextLabel: "Delete forever",
-    render: () => {
-      const actionCopy = state.countdownDone
-        ? "Countdown complete. You may now finalize deletion."
-        : "Press start and wait for the dramatic countdown.";
-
-      modalBody.innerHTML = `
-        <div class="countdown-wrap">
-          <p><strong>Reason:</strong> ${state.reason || "Not chosen"}</p>
-          <p><strong>Farewell:</strong> ${state.farewell || "No message"}</p>
-          <p>${actionCopy}</p>
-          <p id="countdownValue" class="countdown-number">${state.countdownValue}</p>
-          <button type="button" id="startCountdown" class="mini-btn" ${
-            state.countdownDone ? "disabled" : ""
-          }>Start dramatic countdown</button>
+        <div class="offdiag-block">
+          <p>You are about to evaluate <strong>${state.fileName}</strong>.</p>
+          <p class="offdiag-label">Signal</p>
+          <p class="morse-display" aria-live="polite">${morseView}</p>
+          <p class="offdiag-hint">Tap Dot or Dash, then decode transmission.</p>
+          <div class="offdiag-actions">
+            <button type="button" class="mini-btn" data-morse-value=".">Dot</button>
+            <button type="button" class="mini-btn" data-morse-value="-">Dash</button>
+            <button type="button" id="decodeMorseBtn" class="mini-btn">Decode signal</button>
+            <button type="button" id="clearMorseBtn" class="mini-btn">Clear</button>
+          </div>
+          <p class="offdiag-result" aria-live="polite">${decoded}</p>
         </div>
       `;
 
-      const startButton = document.getElementById("startCountdown");
-      startButton.addEventListener("click", startCountdown);
+      modalBody.querySelectorAll("[data-morse-value]").forEach((button) => {
+        button.addEventListener("click", () => {
+          appendMorseSymbol(button.dataset.morseValue || "");
+        });
+      });
+
+      const decodeButton = document.getElementById("decodeMorseBtn");
+      decodeButton?.addEventListener("click", () => {
+        state.morseDecision = decodeMorseSequence(state.morseSequence);
+        renderCurrentStep();
+      });
+
+      const clearButton = document.getElementById("clearMorseBtn");
+      clearButton?.addEventListener("click", () => {
+        state.morseSequence = "";
+        state.morseDecision = "";
+        renderCurrentStep();
+      });
     },
-    validate: () => state.countdownDone,
+    validate: () => state.morseDecision === "delete",
+  },
+  {
+    title: "Step 2: Emotional Damage Meter",
+    subtitle:
+      "Tap the panic pad for 2.5 seconds. Rhythm determines your confidence score.",
+    nextLabel: "Damage quantified",
+    render: () => {
+      const meter = state.damageMeter;
+      const status = meter.done
+        ? `Result: ${meter.score}/10 confidence in this deletion.`
+        : meter.running
+          ? "Meter running. Keep tapping the pad."
+          : "Press Start, then mash the panic pad.";
+
+      modalBody.innerHTML = `
+        <div class="offdiag-block">
+          <p class="offdiag-label">Cadence analyzer</p>
+          <p class="offdiag-hint">Need at least ${DAMAGE_METER_CONFIG.minTaps} taps for a valid reading.</p>
+          <div class="offdiag-actions">
+            <button type="button" id="startDamageMeter" class="mini-btn" ${meter.running || meter.done ? "disabled" : ""}>Start meter</button>
+            <button type="button" id="damagePad" class="panic-pad" ${meter.running ? "" : "disabled"}>PANIC PAD</button>
+            <button type="button" id="resetDamageMeter" class="mini-btn">Reset</button>
+          </div>
+          <p class="offdiag-result" aria-live="polite">${status}</p>
+          <p class="offdiag-label">Taps recorded: ${meter.taps.length}</p>
+        </div>
+      `;
+
+      const startButton = document.getElementById("startDamageMeter");
+      startButton?.addEventListener("click", startDamageMeter);
+
+      const padButton = document.getElementById("damagePad");
+      padButton?.addEventListener("click", registerDamageTap);
+
+      const resetButton = document.getElementById("resetDamageMeter");
+      resetButton?.addEventListener("click", () => {
+        resetDamageMeter();
+        renderCurrentStep();
+      });
+    },
+    validate: () => Boolean(state.damageMeter.done && state.damageMeter.score),
+  },
+  {
+    title: "Step 3: Exile Vector Spell",
+    subtitle: "Cast a 3-arrow sequence. The spell maps to an exile zone.",
+    nextLabel: "Delete forever",
+    render: () => {
+      const sequence = state.exileVector.sequence.join("") || "(empty)";
+      const zone = state.exileVector.zone || "No exile zone selected.";
+      modalBody.innerHTML = `
+        <div class="offdiag-block">
+          <p>Confidence lock-in: <strong>${state.damageMeter.score || "?"}/10</strong></p>
+          <p class="offdiag-label">Spell sequence (${EXILE_VECTOR_CONFIG.sequenceLength} arrows)</p>
+          <p class="vector-display" aria-live="polite">${sequence}</p>
+          <div class="offdiag-actions">
+            <button type="button" class="mini-btn" data-vector="U">Up</button>
+            <button type="button" class="mini-btn" data-vector="D">Down</button>
+            <button type="button" class="mini-btn" data-vector="L">Left</button>
+            <button type="button" class="mini-btn" data-vector="R">Right</button>
+            <button type="button" id="clearVectorBtn" class="mini-btn">Clear</button>
+          </div>
+          <p class="offdiag-result" aria-live="polite">${zone}</p>
+        </div>
+      `;
+
+      modalBody.querySelectorAll("[data-vector]").forEach((button) => {
+        button.addEventListener("click", () => {
+          appendVectorSymbol(button.dataset.vector || "");
+        });
+      });
+
+      const clearButton = document.getElementById("clearVectorBtn");
+      clearButton?.addEventListener("click", () => {
+        state.exileVector.sequence = [];
+        state.exileVector.zone = "";
+        renderCurrentStep();
+      });
+    },
+    validate: () => Boolean(state.exileVector.zone),
   },
 ];
 
@@ -148,7 +210,7 @@ backBtn.addEventListener("click", () => {
     return;
   }
   state.currentStep -= 1;
-  stopCountdown();
+  stopDamageMeter();
   renderCurrentStep();
 });
 
@@ -191,7 +253,7 @@ function closeModal(options = {}) {
   const { restoreFocus = true } = options;
 
   state.isOpen = false;
-  stopCountdown();
+  stopDamageMeter();
   setModalOpenState(false);
 
   if (!restoreFocus) {
@@ -223,37 +285,136 @@ function updateActionButtons() {
   nextBtn.disabled = !activeStep.validate();
 }
 
-function startCountdown() {
-  if (state.countdownDone || state.countdownTimer) {
+function appendMorseSymbol(symbol) {
+  if (![".", "-"].includes(symbol)) {
     return;
   }
 
-  const startButton = document.getElementById("startCountdown");
-  const countdownValueNode = document.getElementById("countdownValue");
-  startButton.disabled = true;
-  state.countdownTimer = window.setInterval(() => {
-    state.countdownValue -= 1;
-
-    if (countdownValueNode) {
-      countdownValueNode.textContent = String(
-        Math.max(state.countdownValue, 0),
-      );
-    }
-
-    if (state.countdownValue <= 0) {
-      stopCountdown();
-      state.countdownDone = true;
-      updateActionButtons();
-      renderCurrentStep();
-    }
-  }, 1000);
+  state.morseSequence = `${state.morseSequence}${symbol}`.slice(
+    -MORSE_OATH_CONFIG.maxSymbols,
+  );
+  state.morseDecision = "";
+  renderCurrentStep();
 }
 
-function stopCountdown() {
-  if (state.countdownTimer) {
-    window.clearInterval(state.countdownTimer);
-    state.countdownTimer = null;
+function decodeMorseSequence(sequence) {
+  if (sequence === MORSE_OATH_CONFIG.deletePattern) {
+    return "delete";
   }
+  if (sequence === MORSE_OATH_CONFIG.keepPattern) {
+    return "keep";
+  }
+  return "invalid";
+}
+
+function getMorseDecisionLabel(decision) {
+  if (decision === "delete") {
+    return "Transmission received: DELETE oath accepted.";
+  }
+  if (decision === "keep") {
+    return "Transmission says KEEP. Use the delete oath pattern to proceed.";
+  }
+  if (decision === "invalid") {
+    return "Signal undecodable. Try .-. for delete.";
+  }
+  return "Awaiting transmission decode.";
+}
+
+function startDamageMeter() {
+  const meter = state.damageMeter;
+  if (meter.running || meter.done) {
+    return;
+  }
+
+  meter.running = true;
+  meter.startedAt = performance.now();
+  meter.taps = [];
+
+  stopDamageMeter();
+  state.damageMeterTimer = window.setTimeout(() => {
+    finalizeDamageMeter();
+  }, DAMAGE_METER_CONFIG.windowMs);
+  renderCurrentStep();
+}
+
+function registerDamageTap() {
+  const meter = state.damageMeter;
+  if (!meter.running) {
+    return;
+  }
+
+  meter.taps.push(performance.now());
+  updateActionButtons();
+  renderCurrentStep();
+}
+
+function finalizeDamageMeter() {
+  const meter = state.damageMeter;
+  meter.running = false;
+  stopDamageMeter();
+
+  if (meter.taps.length < DAMAGE_METER_CONFIG.minTaps) {
+    meter.done = false;
+    meter.score = null;
+    renderCurrentStep();
+    return;
+  }
+
+  const intervals = [];
+  for (let index = 1; index < meter.taps.length; index += 1) {
+    intervals.push(meter.taps[index] - meter.taps[index - 1]);
+  }
+
+  const averageInterval =
+    intervals.reduce((sum, value) => sum + value, 0) / intervals.length;
+  const normalizedPace = Math.max(
+    0,
+    Math.min(1, (520 - averageInterval) / 320),
+  );
+  const score = Math.round(1 + normalizedPace * 9);
+
+  meter.score = Math.max(1, Math.min(10, score));
+  meter.done = true;
+  renderCurrentStep();
+}
+
+function stopDamageMeter() {
+  if (state.damageMeterTimer) {
+    window.clearTimeout(state.damageMeterTimer);
+    state.damageMeterTimer = null;
+  }
+}
+
+function resetDamageMeter() {
+  stopDamageMeter();
+  state.damageMeter = {
+    taps: [],
+    running: false,
+    done: false,
+    score: null,
+    startedAt: 0,
+  };
+}
+
+function appendVectorSymbol(symbol) {
+  if (!["U", "D", "L", "R"].includes(symbol)) {
+    return;
+  }
+
+  if (state.exileVector.sequence.length >= EXILE_VECTOR_CONFIG.sequenceLength) {
+    return;
+  }
+
+  state.exileVector.sequence.push(symbol);
+
+  if (
+    state.exileVector.sequence.length === EXILE_VECTOR_CONFIG.sequenceLength
+  ) {
+    const key = state.exileVector.sequence.join("");
+    state.exileVector.zone = exileZoneMap[key] || "Uncharted Exile Quadrant";
+  }
+
+  renderCurrentStep();
 }
 
 function setStepFocus() {
@@ -261,31 +422,24 @@ function setStepFocus() {
     return;
   }
 
-  if (state.currentStep === 1) {
-    const selectedReason = modalBody.querySelector(
-      ".reason-option.is-selected",
-    );
-    const firstReason = modalBody.querySelector(".reason-option");
-    (selectedReason || firstReason || nextBtn)?.focus();
+  if (state.currentStep === 0) {
+    const firstSignalButton = modalBody.querySelector("[data-morse-value]");
+    (firstSignalButton || nextBtn)?.focus();
     return;
   }
 
-  if (state.currentStep === 2) {
-    const farewellInput = document.getElementById("farewellInput");
-    if (farewellInput) {
-      farewellInput.focus();
-      farewellInput.setSelectionRange(
-        farewellInput.value.length,
-        farewellInput.value.length,
-      );
+  if (state.currentStep === 1) {
+    const startMeterButton = document.getElementById("startDamageMeter");
+    if (startMeterButton && !startMeterButton.disabled) {
+      startMeterButton.focus();
       return;
     }
   }
 
-  if (state.currentStep === 3) {
-    const countdownStart = document.getElementById("startCountdown");
-    if (!state.countdownDone && countdownStart) {
-      countdownStart.focus();
+  if (state.currentStep === 2) {
+    const firstVectorButton = modalBody.querySelector("[data-vector]");
+    if (firstVectorButton) {
+      firstVectorButton.focus();
       return;
     }
   }
@@ -312,6 +466,24 @@ function handleModalKeyDown(event) {
 
   if (event.key === "Tab") {
     trapFocus(event);
+    return;
+  }
+
+  if (state.currentStep === 2) {
+    const vectorKeys = {
+      ArrowUp: "U",
+      ArrowDown: "D",
+      ArrowLeft: "L",
+      ArrowRight: "R",
+    };
+
+    const symbol = vectorKeys[event.key];
+    if (!symbol) {
+      return;
+    }
+
+    event.preventDefault();
+    appendVectorSymbol(symbol);
   }
 }
 
@@ -352,8 +524,6 @@ function getModalFocusableElements() {
 }
 
 function performDelete() {
-  finalizePendingDelete();
-
   if (!state.targetRow) {
     closeModal();
     return;
@@ -362,7 +532,6 @@ function performDelete() {
   const rowToDelete = state.targetRow;
   const fileName = state.fileName;
   const fileType = getFileTypeFromName(fileName);
-  const nextSibling = rowToDelete.nextElementSibling;
   const { poofDelayMs, deleteDelayMs } = getDeleteAnimationTimings(
     reducedMotionQuery.matches,
   );
@@ -391,26 +560,13 @@ function performDelete() {
     updateFileCountPill();
     ensureEmptyState();
 
-    state.pendingUndo = {
-      row: rowToDelete,
-      fileName,
-      nextSibling,
-    };
-    showUndoBanner(fileName);
-    state.undoTimer = window.setTimeout(() => {
-      finalizePendingDelete(true);
-    }, UNDO_WINDOW_MS);
+    resultBanner.classList.remove("is-toast");
+    resultBanner.textContent = `"${fileName}" has been emotionally deleted.`;
+    focusPostDeleteTarget();
 
     state.targetRow = null;
     state.triggerButton = null;
   }, deleteDelayMs);
-}
-
-function clearUndoTimer() {
-  if (state.undoTimer) {
-    window.clearTimeout(state.undoTimer);
-    state.undoTimer = null;
-  }
 }
 
 function resetDeleteFlowState(row, fileName, triggerButton) {
@@ -418,10 +574,13 @@ function resetDeleteFlowState(row, fileName, triggerButton) {
   state.targetRow = row;
   state.fileName = fileName;
   state.triggerButton = triggerButton;
-  state.reason = "";
-  state.farewell = "";
-  state.countdownValue = 3;
-  state.countdownDone = false;
+  state.morseSequence = "";
+  state.morseDecision = "";
+  resetDamageMeter();
+  state.exileVector = {
+    sequence: [],
+    zone: "",
+  };
 }
 
 function setModalOpenState(isOpen) {
@@ -466,69 +625,6 @@ function ensureEmptyState() {
   if (remaining > 0 && emptyRow) {
     emptyRow.remove();
   }
-}
-
-function showUndoBanner(fileName) {
-  resultBanner.classList.add("is-toast");
-  const undoButton = document.createElement("button");
-  undoButton.type = "button";
-  undoButton.id = "undoDeleteBtn";
-  undoButton.className = "undo-btn";
-  undoButton.textContent = "Take me back";
-  undoButton.addEventListener("click", undoPendingDelete, { once: true });
-
-  resultBanner.replaceChildren(
-    document.createTextNode(
-      `"${fileName}" is gone. Are you sure you don't want to take me back? `,
-    ),
-    undoButton,
-  );
-
-  undoButton.focus();
-}
-
-function undoPendingDelete() {
-  if (!state.pendingUndo) {
-    return;
-  }
-
-  clearUndoTimer();
-  const { row, nextSibling, fileName } = state.pendingUndo;
-  const emptyRow = fileList.querySelector(EMPTY_STATE_SELECTOR);
-  emptyRow?.remove();
-
-  if (nextSibling && nextSibling.parentElement === fileList) {
-    fileList.insertBefore(row, nextSibling);
-  } else {
-    fileList.appendChild(row);
-  }
-
-  state.pendingUndo = null;
-  updateFileCountPill();
-  resultBanner.classList.remove("is-toast");
-  resultBanner.textContent = `"${fileName}" has been taken back. Love wins for now.`;
-
-  const restoredButton = row.querySelector(".delete-btn");
-  restoredButton?.focus();
-}
-
-function finalizePendingDelete(showFinalMessage = false) {
-  if (!state.pendingUndo) {
-    return;
-  }
-
-  clearUndoTimer();
-  const { fileName } = state.pendingUndo;
-  state.pendingUndo = null;
-  resultBanner.classList.remove("is-toast");
-
-  if (!showFinalMessage) {
-    resultBanner.textContent = "";
-    return;
-  }
-
-  resultBanner.textContent = `"${fileName}" has been emotionally deleted.`;
-  focusPostDeleteTarget();
 }
 
 function focusPostDeleteTarget() {
