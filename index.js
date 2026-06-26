@@ -559,8 +559,6 @@ function performDelete() {
     rowToDelete.remove();
     updateFileCountPill();
     ensureEmptyState();
-
-    resultBanner.classList.remove("is-toast");
     resultBanner.textContent = `"${fileName}" has been emotionally deleted.`;
     focusPostDeleteTarget();
 
